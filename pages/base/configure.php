@@ -2,63 +2,42 @@
 /**
  * -----------------------------------------------------------------------------
  * @package     smartVISU
- * @author      Martin Gleiß
- * @copyright   2012
+ * @author      Joerg Herrmann
+ * @copyright   2014
  * @license     GPL [http://www.gnu.de]
  * -----------------------------------------------------------------------------
  */
 
+//error_reporting( E_ALL | E_STRICT );
+error_reporting(E_ALL & ~E_NOTICE);
+ini_set("display_errors", 1);
 
-// get config-variables 
-require_once '../../lib/includes.php';
+preg_match('/(.*)?\/pages\/.*?/', dirname(__FILE__), $system_path);
+define ('const_path_system', $system_path[1].'/lib/');
+define ('const_path', $system_path[1].'/');
 
-// init parameters
 $request = array_merge($_GET, $_POST);
+//touch(const_path.'config.ini');
 
+require_once const_path_system.'functions_config.php';
+$cfg = new config(const_path.'config.ini');
+$cfg -> load_config();
+$cfg -> write_config($request);
 
-$line = "<?php\n";
-$line .= "/**\n";
-$line .= "  * -----------------------------------------------------------------------------\n";
-$line .= "  * @package     smartVISU\n";
-$line .= "  * @author      Martin Gleiß\n";
-$line .= "  * @copyright   2012\n";
-$line .= "  * @license     GPL [http://www.gnu.de]\n";
-$line .= "  * -----------------------------------------------------------------------------\n";
-$line .= "  */\n\n\n";
-
-
-touch(const_path.'config.php');
-
-// is it writeable?
-if (is_writeable(const_path.'config.php'))
+// management interface, 
+if ($request['managed'] !== '')
 {
-	foreach ($request as $var => $val)
-	{
-		if (defined('config_'.$var))
-		{
-			if ($val == 'true' || $val == 'false')
-				$line .= "\tdefine('config_".$var."', ".$val.");\n";
-			else
-				$line .= "\tdefine('config_".$var."', '".$val."');\n";
-		}
-	}
-
-	$line .= "\n".'?'.'>';
-
-	// write config
-	if (($fp = fopen(const_path.'config.php', 'w')) !== false)
-	{
-		fwrite($fp, $line);
-		fclose($fp);
-	}
+  die;
 }
 else
 {
-	header("HTTP/1.0 600 smartVISU Config Error");
+  //$cfg -> write_config($request);
+	//header("HTTP/1.0 600 smartVISU Config Error");
 
-	$ret[] = array('title' => 'Configuration',
-		'text' => 'Error saving configuration!<br />Please check the file permissions on "config.php" (it must be writeable)!');
+	//$ret[] = array('title' => 'Configuration',
+	//	'text' => 'Error saving configuration!<br />Please check the file permissions on "config.php" (it must be writeable)!');
 
-	echo json_encode($ret);
+	//echo json_encode($ret);
 }
+
 ?>
