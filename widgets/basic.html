@@ -253,7 +253,7 @@
 	{% import "icon.html" as icon %}
 
 	{% if pic_on|slice(0, 5) == 'icon.' %}
-		{{ attribute(icon, pic_on|slice(5), [id~1, gad_switch, gad_value, '', min, max]) }}
+		{{ attribute(icon, pic_on|slice(5), [id~1, gad_switch, gad_value, min, max]) }}
 	{% else %}
 		<span id="{{ uid(page, id) }}" data-widget="basic.shifter" data-item="{{ gad_value }}, {{ gad_switch }}"
 			{% set pic_on = pic_on|default(icon1~'light_light_dim_00.png') %}
