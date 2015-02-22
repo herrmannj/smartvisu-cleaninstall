@@ -18,8 +18,17 @@ SYSTEMREQUIREMENTS
 --------------------------------------------------------------------------------
     -   fhem with fronthem and a working local webserver with php support
  
+3 STEP FIRST SETUP GUIDE:
+--------------------------------------------------------------------------------
+
+    For the first setup do the following:
+    
+    1. cd to the www-root folder of your installation
+    2. use git clone https://github.com/herrmannj/smartvisu-cleaninstall.git smartvisu
+    3. COPY config.ini.default to config.ini with cp config.ini.default config.ini
+   
  
-10 STEP GUIDE:
+10 STEP PERSONALIZATION GUIDE:
 --------------------------------------------------------------------------------
 
     For your own Project do the following:
@@ -58,6 +67,16 @@ SYSTEMREQUIREMENTS
         
    10.  Enjoy smartVISU!
         
+ 
+1 STEP UPDATE GUIDE:
+--------------------------------------------------------------------------------
+
+    1.  use git pull in the ../smartvisu folder to refresh smartvisu from git
+        (all your personal files will not be touched!)
+        
+        If you changed original files of this git in your local installation this will fail.
+        Use git pull and follow the instructions. Your personalized changes will get lost.
+        Change only your own files!
 
 
 
