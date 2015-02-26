@@ -36,6 +36,11 @@
  *
  */
 
+/** Diese besondere Variante der widget.js arbeitet schneller, weil sie die Events an die Widgets direkt delegiert.
+* Um sie zu verwenden , muss die orignale widget.js in z. B. widget.js.orig umbenannt werden und diese Datei in widget.js.
+*/
+
+
 $(document).on('pagecreate', function(){
 
 	// ----- b a s i c ------------------------------------------------------------
