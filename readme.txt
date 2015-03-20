@@ -26,9 +26,11 @@ All starts with loading index.php as the default page of http://<yourserver>/sma
 		2. the ./apps folder
 		3. the ./pages/smarthome folder
 		4. the ./pages.base folder
-	- if no page is given as a URL parameter,  index.php loads the config_index page which is index.html defined by /lib/defaults.php, the welcome page!
-The follwing runs in a recursive order by loading index.html:
-The index.html from your selected pages folger calls to
+	- if no page is given as a URL parameter,  index.php loads the config_index page which is index.html defined by /lib/defaults.php, 
+	- if no pages folder is configured, the welcome page ./pages/base/index.html is loaded
+	- if a pages folder is configured, the index.html from there is loaded
+The follwing runs in a recursive order by loading index.html from your selected pages folger:
+The index.html calls to
 	- {% extends "base.html" %} which loads base.html and fills the weather and some other widgets into the {% block sidebar %} of base.html
 	- {% include 'rooms_menu.html' %} into {% block content %} of base.html which is your room select menu
 base.html itself {% extends "root.html" %} which loads root.html and defines what to show inside the {% block body %} from root.html: 
