@@ -28,7 +28,7 @@ All starts with loading index.php as the default page of http://<yourserver>/sma
 		4. the ./pages.base folder
 	- if no page is given as a URL parameter,  index.php loads the config_index page which is index.html defined by /lib/defaults.php, 
 	- if no pages folder is configured, the welcome page ./pages/base/index.html is loaded
-	- if a pages folder is configured, the index.html from there is loaded
+	- if a pages folder is configured, the index.html is loaded from there
 The follwing runs in a recursive order by loading index.html from your selected pages folger:
 The index.html calls to
 	- {% extends "base.html" %} which loads base.html and fills the weather and some other widgets into the {% block sidebar %} of base.html
