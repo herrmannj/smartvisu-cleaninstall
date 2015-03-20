@@ -11,9 +11,41 @@ see fhem.de
 DISCRIPTION
 --------------------------------------------------------------------------------
 smartVISU is a framework to create a visualisation with simple html-pages.
-You don't need to know javascript, but if you know you will have a lot mor fun
+You don't need to know javascript, but if you know you will have a lot more fun
 
 
+SHORT INTRODUCTION OF THE STANDARD PAGE LOADING PROCESS OF SMARTVISU
+--------------------------------------------------------------------------------
+In Smartvisu, pages follow a predefined integration line when loading:
+All starts with loading index.php as the default page of http://<yourserver>/smartVISU which 
+	- calls includes.php for reading out the config.ini
+	- starts the twig environment (autoloader.php)
+	- sets path variables (pages, icons, widgets, base, apps, cache)
+	- smartvisu looks into several folders to find a file in the following order:
+		1. your selected ./pages/<myfolder> folder from config.ini
+		2. the ./apps folder
+		3. the ./pages/smarthome folder
+		4. the ./pages.base folder
+	- if no page is given as a URL parameter,  index.php loads the config_index page which is index.html defined by /lib/defaults.php, the welcome page!
+The follwing runs in a recursive order by loading index.html:
+The index.html from your selected pages folger calls to
+	- {% extends "base.html" %} which loads base.html and fills the weather and some other widgets into the {% block sidebar %} of base.html
+	- {% include 'rooms_menu.html' %} into {% block content %} of base.html which is your room select menu
+base.html itself {% extends "root.html" %} which loads root.html and defines what to show inside the {% block body %} from root.html: 
+- Header including
+	- Menu
+	- clock
+	- icon
+	- alerts
+- and defines the new blocks 
+	- {% block content %}{% endblock %}
+	- {% block sidebar %}{% endblock %}
+	- {% block footer %}{% endblock %
+ root.html 
+ 	- loads all that environment stuff including widgets, jquery and other scripts 
+ 	- offers the {% block body %}{% endblock %} for later filling within base.html (see above)
+ Now your page shows up and your navigation can begin
+ 
 SYSTEMREQUIREMENTS
 --------------------------------------------------------------------------------
     -   fhem with fronthem and a working local webserver with php support
