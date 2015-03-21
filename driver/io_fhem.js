@@ -13,6 +13,7 @@
 var io = {
   // --- Driver configuration ----------------------------------------------------
   logLevel:        1,
+  offline:         false,
   gadFilter:       "", // regex, to hide these GADs to FHEM
   addonDriverFile: "",  // filename of an optional addon driver
   // -----------------------------------------------------------------------------
@@ -20,7 +21,7 @@ var io = {
   // -----------------------------------------------------------------------------
   // P U B L I C   F U N C T I O N S
   // -----------------------------------------------------------------------------
-  driverVersion: "1.06",
+  driverVersion: "1.07",
   address: '',
   port: '',
 
@@ -35,23 +36,28 @@ var io = {
   // Does a write-request with a value
   // -----------------------------------------------------------------------------
   write: function (gad, val) {
-    var isOwn = false;
-    if(io.gadFilter) {
-      var re = new RegExp(io.gadFilter);
-      isOwn = re.test(gad);
-    }
-
-    if(isOwn) {
-      if(io.addon) {
-        io.addon.write(gad, val);
-      }
+    if(io.offline) {
+    
     }
     else {
-      io.log(2, "write (gad=" + gad + " val=" + val + ")");
-      io.send({'cmd': 'item', 'id': gad, 'val': val});
-    }
-    io.updateWidget(gad, val);
+      var isOwn = false;
+      if(io.gadFilter) {
+        var re = new RegExp(io.gadFilter);
+        isOwn = re.test(gad);
+      }
 
+      if(isOwn) {
+        if(io.addon) {
+          io.addon.write(gad, val);
+        }
+      }
+      else {
+        io.log(2, "write (gad=" + gad + " val=" + val + ")");
+        io.send({'cmd': 'item', 'id': gad, 'val': val});
+      }
+    }
+    
+    io.updateWidget(gad, val);
   },
 
 
@@ -59,7 +65,7 @@ var io = {
   // Trigger a logic
   // -----------------------------------------------------------------------------
   trigger: function (name, val) {
-    // fronthem does not want to get trigger, so simple send it the addon driver
+    // fronthem does not want to get trigger, so simply send it the addon driver
     if(io.addon) {
       io.addon.trigger(name, val);
     }
@@ -70,21 +76,31 @@ var io = {
   // Initialization of the driver
   // -----------------------------------------------------------------------------
   init: function (address, port) {
-    io.log(1, "init [V" + io.driverVersion + "] (address=" + address + " port=" + port + ")");
+    io.log(0, "init [V" + io.driverVersion + "] (address=" + address + " port=" + port + ")");
     io.address = address;
     io.port = port;
-    io.open();
 
-    if (io.addonDriverFile) {
-      $.getScript("driver/" + io.addonDriverFile)
-        .done(function (script, status) {
-          io.addon = new addonDriver();
-          io.addon.init(io);
-          io.addon.run();
-        })
-        .fail(function (hdr, settings, exception) {
-          io.addon = null;
-        });
+    if(address === "offline") {
+      io.offline = true;
+    }
+
+    if(io.offline) {
+      io.log(0, "DRIVER IS IN OFFLINE MODE");
+    }
+    else {
+      io.open();
+
+      if (io.addonDriverFile) {
+        $.getScript("driver/" + io.addonDriverFile)
+          .done(function (script, status) {
+            io.addon = new addonDriver();
+            io.addon.init(io);
+            io.addon.run();
+          })
+          .fail(function (hdr, settings, exception) {
+            io.addon = null;
+          });
+      }
     }
   },
 
@@ -93,24 +109,39 @@ var io = {
   // Called after each page change
   // -----------------------------------------------------------------------------
   run: function (realtime) {
-    io.log(1, "run (readyState=" + io.socket.readyState + ")");
-    
-    // ToDo: Remove after testing
-    io.resetLoadTime();
+    if(io.offline) {
+      io.log(1, "run (OFFLINE)");
+      io.monitor();
+      io.simulateData();
 
-    if(io.addon) {
-      io.addon.run();
-    }
+      if(io.timer) {
+        clearInterval(io.timer);
+      }
+      io.timer = setInterval(function () {
+        io.simulateData();
+      }, 5000);
 
-    if (io.socket.readyState > 1) {
-      io.open();
     }
     else {
-      // old items
-      io.refreshWidgets();
+      io.log(1, "run (readyState=" + io.socket.readyState + ")");
+      
+      // ToDo: Remove after testing
+      io.resetLoadTime();
 
-      // new items
-      io.monitor();
+      if(io.addon) {
+        io.addon.run();
+      }
+
+      if (io.socket.readyState > 1) {
+        io.open();
+      }
+      else {
+        // old items
+        io.refreshWidgets();
+
+        // new items
+        io.monitor();
+      }
     }
 
   },
@@ -159,6 +190,19 @@ var io = {
     }
   },
 
+  // -----------------------------------------------------------------------------
+  // Try to call the update handler of a widget
+  // -----------------------------------------------------------------------------
+  callUpdateHandler: function(item, values) {
+    var cachedWidget = io.action[$(item).attr('data-widget')];
+    if(cachedWidget) {
+      cachedWidget.handler.call(item, 'update', values);
+    }
+    else {
+      $(item).trigger('update', values);
+   }
+  },
+
 
   // -----------------------------------------------------------------------------
   // Refresh the widgets
@@ -176,13 +220,7 @@ var io = {
         }
         else {
           // ToDo: This does not work with the highcharts in Chrom. FireFox works.
-          var dw = io.action[$(this).attr('data-widget')];
-          if(dw) {
-            dw.handler.call(this, 'update', [values]);
-          }
-          else {
-            io.log(0, $(this).attr('data-widget') + ": Handler not found")
-          }
+          io.callUpdateHandler(this, values);
         }
 			}
 		})
@@ -234,13 +272,7 @@ var io = {
                 }
                 else {  
                   // ToDo: This does not work with the highcharts in Chrome. FireFox works.
-                  var dw = io.action[$(this).attr('data-widget')];
-                  if(dw) {
-                    dw.handler.call(this, 'update', [values]);
-                  }
-                  else {
-                    io.log(0, widgetType + ": Handler not found")
-                  }
+                  io.callUpdateHandler(this, values);
                 }
 							}
 						}
@@ -258,7 +290,7 @@ var io = {
   // -----------------------------------------------------------------------------
   // Update a chart
   // -----------------------------------------------------------------------------
-  updateChart: function(gad, series) {
+  updateChart: function(gad, series, updatemode) {
     $('[data-item*="' + gad + '"]').each(function (idx) {
       var items = widget.explode($(this).attr('data-item'));
       for (var i = 0; i < items.length; i++) {
@@ -268,15 +300,7 @@ var io = {
             "data": series
           };
 
-          ////$(this).trigger('update', seriesData);
-          var dw = io.action[$(this).attr('data-widget')];
-          if(dw) {
-            dw.handler.call(this, 'update', seriesData);
-          }
-          else {
-            io.log(0, widgetType + ": Handler not found")
-          }
-
+          io.callUpdateHandler(this, seriesData);
           io.log(2, "series updated: " + seriesData.gad + " size: " + seriesData.data.length);
           break;
         }
@@ -285,6 +309,76 @@ var io = {
 
   },
 
+  // -----------------------------------------------------------------------------
+  // Handle the received data
+  // -----------------------------------------------------------------------------
+  handleReceivedData: function (eventdata) {
+    var i = 0;
+    var data = JSON.parse(eventdata);
+    switch (data.cmd) {
+      case 'reloadPage':
+        location.reload(true);
+        break;
+
+      case 'item':
+        // We get:
+        // {
+        //   "cmd": "item",
+        //   "items": ["Temperature_LivingRoom.temperature","21"]
+        // }
+        for (i = 0; i < data.items.length; i = i + 2) {
+          var item = data.items[i];
+          var val = data.items[i + 1];
+          io.updateWidget(item, val);
+        }
+        break;
+
+      case 'series':
+        // We get:
+        // {
+        //   "cmd": "series",
+        //   "items": {
+        //     "gad": "hcs.data.Heating.WaterTemperatureChart",
+        //     "updatemode": "complete",
+        //     "plotdata": [
+        //       [
+        //         1426374304000,
+        //         45
+        //       ],
+        //       [
+        //         1426376105000,
+        //         45
+        //       ],
+        //       [
+        //         1426377905000,
+        //         44.5
+        //       ],
+        //     ]
+        //   }
+        // }          
+        for (i = 0; i < data.items.length; i++) {
+          var gad = data.items[i].gad;
+          var plotData = data.items[i].plotdata;
+          var updateMode = data.items[i].updatemode;
+          io.updateChart(gad, plotData, updateMode);
+        }
+        break;
+
+      case 'dialog':
+        notify.info(data.header, data.content);
+        break;
+
+      case 'proto':
+        var proto = data.ver;
+        if (proto != io.protocolVersion) {
+          notify.info('Driver: fhem', 'Protocol mismatch<br />Driver is at version v' + io.protocolVersion + '<br />fhem is at version v' + proto);
+        }
+        break;
+
+      case 'log':
+        break;
+    }
+  },
 
   // -----------------------------------------------------------------------------
   // Open the connection and listen what fronthem sends
@@ -293,52 +387,18 @@ var io = {
     io.socket = new WebSocket('ws://' + io.address + ':' + io.port + '/');
 
     io.socket.onopen = function () {
-      io.log(2, "socket.onopen()");
+      io.log(2, "socket.onopen");
       io.stopReconnectTimer();
       io.send({'cmd': 'proto', 'ver': io.protocolVersion});
       io.monitor();
       if (notify.exists()) {
         notify.remove();
       }
-
     };
 
     io.socket.onmessage = function (event) {
-      var item, val;
-
-      var data = JSON.parse(event.data);
-      io.log(2, "onmessage() data= " + event.data);
-      switch (data.cmd) {
-        case 'reloadPage':
-          location.reload(true);
-          break;
-
-        case 'item':
-          for (var i = 0; i < data.items.length; i = i + 2) {
-            item = data.items[i];
-            val = data.items[i + 1];
-            io.updateWidget(item, val);
-          }
-          break;
-
-        case 'series':
-          ////io.updateChart("plot.LivingRoom", series);
-          break;
-
-        case 'dialog':
-          notify.info(data.header, data.content);
-          break;
-
-        case 'proto':
-          var proto = data.ver;
-          if (proto != io.protocolVersion) {
-            notify.info('Driver: fhem', 'Protocol mismatch<br />Driver is at version v' + io.protocolVersion + '<br />fhem is at version v' + proto);
-          }
-          break;
-
-        case 'log':
-          break;
-      }
+      io.log(2, "socket.onmessage: data= " + event.data);
+      io.handleReceivedData(event.data);
     };
 
     io.socket.onerror = function (error) {
@@ -357,9 +417,14 @@ var io = {
   // Sends the data to fronthem
   // -----------------------------------------------------------------------------
   send: function (data) {
-    if (io.socket.readyState == 1) {
-      io.socket.send(unescape(encodeURIComponent(JSON.stringify(data))));
-      io.log(2, 'send() data: ' + JSON.stringify(data));
+    if (io.offline) {
+      io.log(2, 'OFFLINE send() data: ' + JSON.stringify(data));
+    }
+    else {
+      if (io.socket.readyState == 1) {
+        io.socket.send(unescape(encodeURIComponent(JSON.stringify(data))));
+        io.log(2, 'send() data: ' + JSON.stringify(data));
+      }
     }
   },
 
@@ -387,6 +452,9 @@ var io = {
 
     for (var item in unique) {
       gads.push(item);
+      if(io.offline) {
+        io.offlineGADs.push(item);
+      }
     }
 
     if(io.gadFilter) {
@@ -418,17 +486,24 @@ var io = {
     io.allGADs.forEach(function (item) {
       var dataWidget = $(item).attr('data-widget');
         if (dataWidget.lastIndexOf("chart.", 0) == 0 ) {
-          var dataItem = $(item).attr('data-item');
-          var list = dataItem.split(',');
+          var gads = $(item).attr('data-item').split(',');
+          var dataModes = $(item).attr('data-modes');
+          var modes = dataModes.split(',');
 
-          for (var i = 0; i < list.length; i++) {
+          for (var i = 0; i < gads.length; i++) {
             var plotInfo = {
-              "gad": list[i].trim(),
-              "mode": $(item).attr('data-modes'),
+              "gad": gads[i].trim(),
+              "mode": modes.length > 1 ? modes[i].trim() : dataModes,
               "start": $(item).attr('data-tmin'),
-              "end": $(this).attr('data-tmax'),
-              "interval": $(item).attr('data-interval')
+              "end": $(item).attr('data-tmax'),
+              "interval": $(item).attr('data-interval'),
+              "minzoom": $(item).attr('data-zoom'),
+              "updatemode": "complete"
             };
+            
+            if(io.offline) {
+              io.offlineSeries.push(plotInfo);
+            }
 
             if (io.gadFilter) {
               var re = new RegExp(io.gadFilter);
@@ -467,6 +542,10 @@ var io = {
               "size": $(item).attr('data-count'),
               "interval": $(item).attr('data-interval')
             };
+            
+            if(io.offline) {
+              io.offlineLogs.push(logInfo);
+            }
 
             if (io.gadFilter) {
               var re = new RegExp(io.gadFilter);
@@ -498,11 +577,11 @@ var io = {
 				
 		for ( var i = 0; i < handlers.delegateCount; i++) {
 			var raw = handlers[i].selector;
-			var regx = /.*?data-widget="(.+?)".*/; 
+			var regx = /.*?data-widget="(.+?)".*/;
 			regx.exec(raw);
 			var widget = RegExp.$1;
 			var handler = handlers[i].handler;
-			io.action[widget] = {handler: handler};
+      io.action[widget] = {handler: handler};
 		}
 
 		// get all widgets at page
@@ -524,13 +603,14 @@ var io = {
   fhemLogs : [],
   ownLogs  : [],
   monitor: function () {
-    if (io.socket.readyState == 1) {
+
+    if (io.offline || io.socket.readyState == 1) {
       // ToDo: Remove after testing
       io.logLoadTime("Monitor");
 
       io.getAllGADs();
       io.splitGADs();
-      io.splitCharts();
+      io.splitCharts(); 
       io.splitLogs();
 
       // ToDo: Remove after testing
@@ -601,7 +681,49 @@ var io = {
         ////alert(io.loadTimeLog);
       }
     }
+  },
+  
+  // -----------------------------------------------------------------------------
+  // offline data
+  // -----------------------------------------------------------------------------
+  timer: null,
+  offlineGADs:   [],
+  offlineSeries: [],
+  offlineLogs: [],
+  simulateData: function() {
+    for(i=0; i<io.offlineGADs.length; i++) {
+      var data = [];
+      data.push(io.offlineGADs[i]);
+      data.push((Math.random() * 100).toFixed(1));
+      io.handleReceivedData('{"cmd":"item", "items": ' + JSON.stringify(data) + '}');
+    }
+
+    var dt = new Date().getTime();
+    for(var i=0; i<io.offlineSeries.length; i++) {
+      var widget = $('[data-item*="' + io.offlineSeries[i].gad + '"]')[0];
+      var steps = 100;
+      var yMin = $(widget).attr('data-ymin'); yMin = yMin ? yMin *1 : 0;
+      var yMax = $(widget).attr('data-ymax'); yMax = yMax ? yMax *1 : 255;
+
+      var xMin = new Date().getTime() - new Date().duration($(widget).attr('data-tmin'));
+      var xMax = new Date().getTime() - new Date().duration($(widget).attr('data-tmax'));
+      var step = Math.round((xMax - xMin) / steps);
+      var val = yMin + ((yMax - yMin) / 2);
+      var delta = (yMax - yMin) / 20;
+
+      var series = [];
+      while (xMin <= xMax) {
+        val += Math.random() * (2 * delta) - delta;
+        series.push([xMin, val.toFixed(2) * 1.0]);
+        xMin += step;
+      }
+
+      var dataString = '{"cmd":"series", "items": [{"gad": "' + io.offlineSeries[i].gad + '", "updatemode": "complete", "plotdata": ' + JSON.stringify(series) + ' }]}';
+      io.handleReceivedData(dataString);
+    }
+
   }
+
 
 };
 
