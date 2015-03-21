@@ -20,25 +20,20 @@ var io = {
   // -----------------------------------------------------------------------------
   // P U B L I C   F U N C T I O N S
   // -----------------------------------------------------------------------------
-  driverVersion: "1.02",
+  driverVersion: "1.06",
   address: '',
   port: '',
 
-  /**
-   * Does a read-request and adds the result to the buffer
-   *
-   * @param      the item
-   */
+  // -----------------------------------------------------------------------------
+  // Does a read-request and adds the result to the buffer
+  // -----------------------------------------------------------------------------
   read: function (item) {
     io.log(1, "read (item=" + item + ")");
   },
 
-  /**
-   * Does a write-request with a value
-   *
-   * @param      the item
-   * @param      the value
-   */
+  // -----------------------------------------------------------------------------
+  // Does a write-request with a value
+  // -----------------------------------------------------------------------------
   write: function (gad, val) {
     var isOwn = false;
     if(io.gadFilter) {
@@ -59,12 +54,10 @@ var io = {
 
   },
 
-  /**
-   * Trigger a logic
-   *
-   * @param      the logic
-   * @param      the value
-   */
+
+  // -----------------------------------------------------------------------------
+  // Trigger a logic
+  // -----------------------------------------------------------------------------
   trigger: function (name, val) {
     // fronthem does not want to get trigger, so simple send it the addon driver
     if(io.addon) {
@@ -72,12 +65,10 @@ var io = {
     }
   },
 
-  /**
-   * Initialization of the driver
-   *
-   * @param      the ip or url to the system (optional)
-   * @param      the port on which the connection should be made (optional)
-   */
+
+  // -----------------------------------------------------------------------------
+  // Initialization of the driver
+  // -----------------------------------------------------------------------------
   init: function (address, port) {
     io.log(1, "init [V" + io.driverVersion + "] (address=" + address + " port=" + port + ")");
     io.address = address;
@@ -88,7 +79,8 @@ var io = {
       $.getScript("driver/" + io.addonDriverFile)
         .done(function (script, status) {
           io.addon = new addonDriver();
-          io.addon.init(io);io.addon.run();
+          io.addon.init(io);
+          io.addon.run();
         })
         .fail(function (hdr, settings, exception) {
           io.addon = null;
@@ -97,11 +89,14 @@ var io = {
   },
 
 
-  /**
-   * Lets the driver work
-   */
+  // -----------------------------------------------------------------------------
+  // Called after each page change
+  // -----------------------------------------------------------------------------
   run: function (realtime) {
     io.log(1, "run (readyState=" + io.socket.readyState + ")");
+    
+    // ToDo: Remove after testing
+    io.resetLoadTime();
 
     if(io.addon) {
       io.addon.run();
@@ -134,9 +129,10 @@ var io = {
     }
   },
 
-  /**
-   * Start timer
-   */
+
+  // -----------------------------------------------------------------------------
+  // Start timer
+  // -----------------------------------------------------------------------------
   startReconnectTimer: function () {
     if (!io.rcTimer) {
       io.log(1, "Reconnect timer started");
@@ -151,9 +147,10 @@ var io = {
     }
   },
 
-  /**
-   * Stop timer
-   */
+
+  // -----------------------------------------------------------------------------
+  // Stop timer
+  // -----------------------------------------------------------------------------
   stopReconnectTimer: function () {
     if (io.rcTimer) {
       clearInterval(io.rcTimer);
@@ -162,49 +159,136 @@ var io = {
     }
   },
 
-  /**
-   * Refresh the widgets
-   * The native SmartVISU method is blocking
-   * Therefore we handle this here in a non blocking way
-   */
+
+  // -----------------------------------------------------------------------------
+  // Refresh the widgets
+  // The native SmartVISU method is blocking
+  // Therefore we handle this here in a non blocking way
+  // -----------------------------------------------------------------------------
   refreshWidgets: function () {
     $('[id^="' + $.mobile.activePage.attr('id') + '-"][data-item]').each(function (idx) {
-      setTimeout(function(item) {
-        var values = widget.get(widget.explode($(item).attr('data-item')));
-        if (widget.check(values)) {
-          $(item).trigger('update', [values]);
+			var values = widget.get(widget.explode($(this).attr('data-item')));
+
+			if (widget.check(values)) {
+        var isPlot = $(this).attr('data-widget').substr(0, 5) == 'plot.';
+        if(isPlot) {
+          $(this).trigger('update', [values]);
         }
-      }, 2, this);
-    })
+        else {
+          // ToDo: This does not work with the highcharts in Chrom. FireFox works.
+          var dw = io.action[$(this).attr('data-widget')];
+          if(dw) {
+            dw.handler.call(this, 'update', [values]);
+          }
+          else {
+            io.log(0, $(this).attr('data-widget') + ": Handler not found")
+          }
+        }
+			}
+		})
+    
   },
 
-  /**
-   * Update a widget
-   *
-   */
-  updateWidget: function(item, val) {
-    setTimeout(function(i, v) {
-      widget.update(i, v);
-      io.log(2, "item updated: " + i + " val: " + v);
-    }, 1, item, val);
- },
+  // -----------------------------------------------------------------------------
+  // Update a widget
+  // -----------------------------------------------------------------------------
+  updateWidget: function(item, value) {
+  // ToDo: Remove after testing
+    io.receivedGADs++;    
+    io.logLoadTime("GAD #" + io.receivedGADs);
+    
+    var widgetType = "";
 
+		if (value === undefined || widget.buffer[item] !== value || (widget.buffer[item] instanceof Array && widget.buffer[item].toString() != value.toString())) {
+      widget.set(item, value);
+      
+			$('[data-item*="' + item + '"]').each(function (idx) {
+        widgetType = $(this).attr('data-widget');
+				var items = widget.explode($(this).attr('data-item'));
 
-  /**
-   * Update a plot
-   *
-   */
-  updatePlot: function(item, series) {
-    setTimeout(function(i, v) {
-      widget.update(i, v);
-      io.log(2, "series updated: " + i + " size: " + v.length);
+				for (var i = 0; i < items.length; i++) {
+					if (items[i] == item) {
+						var values = Array();
+            var isPlot = widgetType.substr(0, 5) == 'plot.';
+            
+						// update to a plot: only add a point
+            // ToDo: Point still unsolved
+						if (isPlot && $('#' + this.id).highcharts()) {
+							// if more than one item, only that with the value
+              /*
+							for (var j = 0; j < items.length; j++) {
+								values.push(items[j] == item ? value : null);
+							}
+							if (value !== undefined && value != null) {
+  						  $(this).trigger('point', [values]);
+  						}
+              */
+						}
 
-    }, 1, item, series);
+						// regular update to the widget with all items   
+						else {
+							values = widget.get(items);
+							if (widget.check(values)) {
+                if(isPlot) {
+								  $(this).trigger('update', [values]);
+                }
+                else {  
+                  // ToDo: This does not work with the highcharts in Chrome. FireFox works.
+                  var dw = io.action[$(this).attr('data-widget')];
+                  if(dw) {
+                    dw.handler.call(this, 'update', [values]);
+                  }
+                  else {
+                    io.log(0, widgetType + ": Handler not found")
+                  }
+                }
+							}
+						}
+					}
+				}
+			});
+		}
+    
+    // ToDo: Remove after testing
+    io.logLoadTime("OK (" + widgetType + ")");
+    io.showLoadTime();
   },
 
-  /**
-   * Open the connection and add some handlers
-   */
+
+  // -----------------------------------------------------------------------------
+  // Update a chart
+  // -----------------------------------------------------------------------------
+  updateChart: function(gad, series) {
+    $('[data-item*="' + gad + '"]').each(function (idx) {
+      var items = widget.explode($(this).attr('data-item'));
+      for (var i = 0; i < items.length; i++) {
+        if (items[i] === gad) {
+          var seriesData = {
+            "gad": gad,
+            "data": series
+          };
+
+          ////$(this).trigger('update', seriesData);
+          var dw = io.action[$(this).attr('data-widget')];
+          if(dw) {
+            dw.handler.call(this, 'update', seriesData);
+          }
+          else {
+            io.log(0, widgetType + ": Handler not found")
+          }
+
+          io.log(2, "series updated: " + seriesData.gad + " size: " + seriesData.data.length);
+          break;
+        }
+      }
+    });
+
+  },
+
+
+  // -----------------------------------------------------------------------------
+  // Open the connection and listen what fronthem sends
+  // -----------------------------------------------------------------------------
   open: function () {
     io.socket = new WebSocket('ws://' + io.address + ':' + io.port + '/');
 
@@ -238,7 +322,7 @@ var io = {
           break;
 
         case 'series':
-          ////io.updatePlot("plot.LivingRoom", series);
+          ////io.updateChart("plot.LivingRoom", series);
           break;
 
         case 'dialog':
@@ -268,9 +352,10 @@ var io = {
     };
   },
 
-  /**
-   * Sends data to the connected system
-   */
+
+  // -----------------------------------------------------------------------------
+  // Sends the data to fronthem
+  // -----------------------------------------------------------------------------
   send: function (data) {
     if (io.socket.readyState == 1) {
       io.socket.send(unescape(encodeURIComponent(JSON.stringify(data))));
@@ -278,13 +363,32 @@ var io = {
     }
   },
 
-  /**
-   *  Slit the GADs into the FHEM-part and our own part
-   */
+
+  // -----------------------------------------------------------------------------
+  // Split the GADs into the FHEM-part and our own part
+  // -----------------------------------------------------------------------------
   splitGADs: function() {
     io.ownGADs = [];
     io.fhemGADs = [];
-    var gads = widget.listeners();
+    var gads = Array();
+    var unique = Array();
+
+    io.allGADs.forEach(function (item) {
+      var dataWidget = $(item).attr('data-widget');
+      if (!(dataWidget == 'status.log' || dataWidget.lastIndexOf("chart.", 0) === 0) || dataWidget.lastIndexOf("plot.", 0) === 0 ) {
+        var items = widget.explode($(item).attr('data-item'));
+        for (var i = 0; i < items.length; i++) {
+          if (!widget.checkseries(items[i])) {
+            unique[items[i]] = '';
+          }
+        }
+      }
+    });
+
+    for (var item in unique) {
+      gads.push(item);
+    }
+
     if(io.gadFilter) {
       var re = new RegExp(io.gadFilter);
       for (var i=0; i < gads.length; i++) {
@@ -303,60 +407,135 @@ var io = {
     }
   },
 
-  /**
-   *  Slit the plots into the FHEM-part and our own part
-   */
-  splitPlots: function() {
+
+  // -----------------------------------------------------------------------------
+  // Split the charts into the FHEM-part and our own part
+  // -----------------------------------------------------------------------------
+  splitCharts: function() {
     io.ownSeries = [];
     io.fhemSeries = [];
-    var plots = widget.plot();
 
-    widget.plot().each(function (idx) {
-      var dataItem = $(this).attr('data-item');
-      var list = dataItem.split(',');
+    io.allGADs.forEach(function (item) {
+      var dataWidget = $(item).attr('data-widget');
+        if (dataWidget.lastIndexOf("chart.", 0) == 0 ) {
+          var dataItem = $(item).attr('data-item');
+          var list = dataItem.split(',');
 
-      for (var i = 0; i < list.length; i++) {
-        var entryParts = list[i].split(".");
-        var gad = "";
-        for (var j = 0; j < entryParts.length - 3; j++) {
-          gad += ((gad.length == 0 ? "" : ".") + entryParts[j]).trim();
-        }
+          for (var i = 0; i < list.length; i++) {
+            var plotInfo = {
+              "gad": list[i].trim(),
+              "mode": $(item).attr('data-modes'),
+              "start": $(item).attr('data-tmin'),
+              "end": $(this).attr('data-tmax'),
+              "interval": $(item).attr('data-interval')
+            };
 
-        var plotInfo = {
-          'gad': gad,
-          'mode': entryParts[entryParts.length - 3],
-          'start': entryParts[entryParts.length - 2],
-          'end': entryParts[entryParts.length - 1]
-        };
-
-        if (io.gadFilter) {
-          var re = new RegExp(io.gadFilter);
-          if (re.test(plotInfo.gad)) {
-            io.ownSeries.push(plotInfo);
+            if (io.gadFilter) {
+              var re = new RegExp(io.gadFilter);
+              if (re.test(plotInfo.gad)) {
+                io.ownSeries.push(plotInfo);
+              }
+              else {
+                io.fhemSeries.push(plotInfo);
+              }
+            }
+            else {
+              io.fhemSeries.push(plotInfo);
+            }
           }
-          else {
-            io.fhemSeries.push(plotInfo);
-          }
         }
-        else {
-          io.fhemSeries.push(plotInfo);
-        }
-      }
     });
 
   },
 
-  /**
-   * Monitors the items
-   */
+  // -----------------------------------------------------------------------------
+  // Split the Logs into the FHEM-part and our own part
+  // -----------------------------------------------------------------------------
+  splitLogs: function() {
+    io.ownLogs = [];
+    io.fhemLogs = [];
+    
+    io.allGADs.forEach(function (item) {
+      var dataWidget = $(item).attr('data-widget');
+        if (dataWidget === "status.log") {
+          var dataItem = $(item).attr('data-item');
+          var list = dataItem.split(',');
+
+          for (var i = 0; i < list.length; i++) {
+            var logInfo = {
+              "gad": list[i].trim(),
+              "size": $(item).attr('data-count'),
+              "interval": $(item).attr('data-interval')
+            };
+
+            if (io.gadFilter) {
+              var re = new RegExp(io.gadFilter);
+              if (re.test(logInfo.gad)) {
+                io.ownLogs.push(logInfo);
+              }
+              else {
+                io.fhemLogs.push(logInfo);
+              }
+            }
+            else {
+              io.fhemLogs.push(logInfo);
+            }
+          }
+        }
+    });
+    
+  },
+
+  // -----------------------------------------------------------------------------
+  // Get and cache GADs
+  // -----------------------------------------------------------------------------
+  getAllGADs: function() {
+  	io.action = {};
+    io.allGADs = [];
+
+		// get all delegate handlers
+    var handlers = ($._data($(document)[0], "events") || {} )["update"];
+				
+		for ( var i = 0; i < handlers.delegateCount; i++) {
+			var raw = handlers[i].selector;
+			var regx = /.*?data-widget="(.+?)".*/; 
+			regx.exec(raw);
+			var widget = RegExp.$1;
+			var handler = handlers[i].handler;
+			io.action[widget] = {handler: handler};
+		}
+
+		// get all widgets at page
+		$('[id^="' + $.mobile.activePage.attr('id') + '-"][data-item]').each(function (idx, e) {
+      io.allGADs.push(this);
+		});
+
+	},
+
+
+  // -----------------------------------------------------------------------------
+  // Monitors the items
+  // -----------------------------------------------------------------------------
+  allGADs  : [],
   fhemGADs  : [],
   ownGADs   : [],
   fhemSeries : [],
   ownSeries  : [],
+  fhemLogs : [],
+  ownLogs  : [],
   monitor: function () {
     if (io.socket.readyState == 1) {
+      // ToDo: Remove after testing
+      io.logLoadTime("Monitor");
+
+      io.getAllGADs();
       io.splitGADs();
-      io.splitPlots();
+      io.splitCharts();
+      io.splitLogs();
+
+      // ToDo: Remove after testing
+      io.logLoadTime("Monitor done");
+      
       io.log(1, "monitor (GADs:" + io.fhemGADs.length + ", Series:" + io.fhemSeries.length + ")");
 
       if (io.fhemGADs.length) {
@@ -364,11 +543,15 @@ var io = {
       }
 
       if (io.fhemSeries.length) {
-        ////io.send({'cmd': 'series', 'items': io.fhemSeries});
+        io.send({'cmd': 'series', 'items': io.fhemSeries});
+      }
+      
+      if (io.fhemLogs.length) {
+        io.send({'cmd': 'log', 'items': io.fhemLogs});
       }
 
       if (io.addon) {
-        io.addon.monitor(io.ownGADs, io.ownSeries, []);
+        io.addon.monitor(io.ownGADs, io.ownSeries, io.ownLogs);
       }
 
 
@@ -376,9 +559,9 @@ var io = {
   },
 
 
-  /**
-   * Closes the connection
-   */
+  // -----------------------------------------------------------------------------
+  // Closes the connection
+  // -----------------------------------------------------------------------------
   close: function () {
     if(io.socket != null) {
       io.socket.close();
@@ -386,6 +569,38 @@ var io = {
       io.log(1, "socket closed");
     }
 
+  },
+
+  // =============================================================================
+  // H E L P E R S
+  // =============================================================================
+  
+  // -----------------------------------------------------------------------------
+  // Time measurement
+  // -----------------------------------------------------------------------------
+  gadsToMeasure:   20,
+  loadTimeLog:     "Load-Times\n",
+  timeStamp:       0,
+  receivedGADs:    0,
+  
+  resetLoadTime: function() {
+    io.receivedGADs = 0;
+    io.loadTimeLog = "Load-Times\n";
+    io.logLoadTime("Start");
+  },
+  logLoadTime: function (text) {
+    var d = new Date();
+    var diff = io.timeStamp == 0 ? 0 : (d.getTime() - io.timeStamp);
+    io.loadTimeLog += d.toLocaleTimeString() + "." + ("000" + d.getMilliseconds()).slice(-3) + " (" + diff + " ms): " + text + "\n";
+    io.timeStamp = d.getTime();
+  },
+  showLoadTime: function() {
+    if(io.receivedGADs == io.gadsToMeasure) {
+      if(io.loadTimeLog) {
+        io.logLoadTime(io.receivedGADs + " GADs");
+        ////alert(io.loadTimeLog);
+      }
+    }
   }
 
 };
