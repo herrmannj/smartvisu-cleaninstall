@@ -21,7 +21,7 @@ var io = {
   // -----------------------------------------------------------------------------
   // P U B L I C   F U N C T I O N S
   // -----------------------------------------------------------------------------
-  driverVersion: "1.07",
+  driverVersion: "1.08",
   address: '',
   port: '',
 
@@ -214,14 +214,7 @@ var io = {
 			var values = widget.get(widget.explode($(this).attr('data-item')));
 
 			if (widget.check(values)) {
-        var isPlot = $(this).attr('data-widget').substr(0, 5) == 'plot.';
-        if(isPlot) {
-          $(this).trigger('update', [values]);
-        }
-        else {
-          // ToDo: This does not work with the highcharts in Chrom. FireFox works.
-          io.callUpdateHandler(this, values);
-        }
+        io.callUpdateHandler(this, values);
 			}
 		})
     
@@ -267,13 +260,7 @@ var io = {
 						else {
 							values = widget.get(items);
 							if (widget.check(values)) {
-                if(isPlot) {
-								  $(this).trigger('update', [values]);
-                }
-                else {  
-                  // ToDo: This does not work with the highcharts in Chrome. FireFox works.
-                  io.callUpdateHandler(this, values);
-                }
+                io.callUpdateHandler(this, values);
 							}
 						}
 					}
@@ -312,9 +299,9 @@ var io = {
   // -----------------------------------------------------------------------------
   // Handle the received data
   // -----------------------------------------------------------------------------
-  handleReceivedData: function (eventdata) {
+  handleReceivedData: function (eventData) {
     var i = 0;
-    var data = JSON.parse(eventdata);
+    var data = JSON.parse(eventData);
     switch (data.cmd) {
       case 'reloadPage':
         location.reload(true);
@@ -577,17 +564,19 @@ var io = {
 				
 		for ( var i = 0; i < handlers.delegateCount; i++) {
 			var raw = handlers[i].selector;
-			var regx = /.*?data-widget="(.+?)".*/;
-			regx.exec(raw);
+			var regEx = /.*?data-widget="(.+?)".*/;
+			regEx.exec(raw);
 			var widget = RegExp.$1;
 			var handler = handlers[i].handler;
       io.action[widget] = {handler: handler};
 		}
 
 		// get all widgets at page
-		$('[id^="' + $.mobile.activePage.attr('id') + '-"][data-item]').each(function (idx, e) {
-      io.allGADs.push(this);
-		});
+    if($.mobile.activePage) {
+      $('[id^="' + $.mobile.activePage.attr('id') + '-"][data-item]').each(function (idx, e) {
+        io.allGADs.push(this);
+      });
+    }
 
 	},
 
@@ -610,7 +599,7 @@ var io = {
 
       io.getAllGADs();
       io.splitGADs();
-      io.splitCharts(); 
+      io.splitCharts();
       io.splitLogs();
 
       // ToDo: Remove after testing
