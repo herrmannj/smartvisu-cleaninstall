@@ -6,6 +6,7 @@ ip_allowed = ''
 ident_by_cert = false 
 ca_cert = ''
 auto_add = true 
+user_directory = ''
 
 [clients]
 

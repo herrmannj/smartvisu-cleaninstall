@@ -131,6 +131,8 @@ class config
     define ('config_transition', 'fade');
     define ('config_delay', '750');
     define ('const_cvsucks', 10); //something with design, unclear what it means ...
+    define ('config_user_directory', $this->configuration['smartVISU']['user_directory']);
+    
     date_default_timezone_set('Europe/Berlin');
     umask(0002);
     return true;

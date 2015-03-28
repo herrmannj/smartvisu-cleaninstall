@@ -53,6 +53,9 @@
 	{% if isfile('pages/'~config_pages~'/visu.js') %}
 		<script type="text/javascript" src="pages/{{ config_pages }}/visu.js"></script>{% endif %}
 
+	{% if (isfile('pages/'~config_pages~'/widgets.js.php')) and (config_user_directory|length > 0) %}
+		<script type="text/javascript" src="pages/{{ config_pages }}/widgets.js.php?user_directory={{config_user_directory|url_encode}}"></script>{% endif %}
+
 	{% if isfile('pages/'~config_pages~'/visu.css') %}
 		<link rel="stylesheet" type="text/css" href="pages/{{ config_pages }}/visu.css" />{% endif %}
 
