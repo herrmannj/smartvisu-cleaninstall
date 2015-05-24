@@ -83,6 +83,7 @@ if (is_file(const_path."pages/".config_pages."/".$request['page'].".html")
 	// set user directory pathes
 	if (strlen(const_path.config_user_directory) > 0) {
 		$loader->addPath(const_path.config_user_directory);
+		$twig->addGlobal('user_directory', config_user_directory);
 
 		if (config_design == 'ice')
 		{
