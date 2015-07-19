@@ -80,6 +80,29 @@ if (is_file(const_path."pages/".config_pages."/".$request['page'].".html")
 		$twig->addGlobal('icon0', 'icons/ws/');
 	}
 
+	// set user directory pathes
+	if (strlen(const_path.config_user_directory) > 0) {
+		$loader->addPath(const_path.config_user_directory);
+		$twig->addGlobal('user_directory', config_user_directory);
+
+		if (config_design == 'ice')
+		{
+			$twig->addGlobal('icon1user', config_user_directory . '/icons/bl/');
+			$twig->addGlobal('icon0user', config_user_directory . '/icons/sw/');
+
+		}
+		elseif (config_design == 'greenhornet')
+		{
+			$twig->addGlobal('icon1user', config_user_directory . '/icons/gn/');
+			$twig->addGlobal('icon0user', config_user_directory . '/icons/ws/');
+		}
+		else
+		{
+			$twig->addGlobal('icon1user', config_user_directory . '/icons/or/');
+			$twig->addGlobal('icon0user', config_user_directory . '/icons/ws/');
+		}
+	}
+	
 	foreach (get_defined_constants() as $key => $val)
 	{
 		if (substr($key, 0, 6) == 'config')
